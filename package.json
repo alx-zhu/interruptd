@@ -21,17 +21,23 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "interruptd-explorer",
+          "id": "interruptdExplorer",
           "title": "Interruptd Explorer",
-          "icon": "media/file-regular.svg"
+          "icon": "$(repo)"
         }
       ]
     },
     "views": {
-      "interruptd-explorer": [
+      "explorer": [
         {
-          "id": "interruptdGraphView",
-          "name": "Graph View"
+          "id": "interruptdDoiList",
+          "name": "Degree of Interest List"
+        }
+      ],
+      "interruptdExplorer": [
+        {
+          "id": "interruptdFileExplorer",
+          "name": "Interruptd File Explorer"
         }
       ]
     }

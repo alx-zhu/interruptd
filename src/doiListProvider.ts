@@ -12,12 +12,11 @@ class FileNode extends vscode.TreeItem {
     super(label, collapsibleState);
     this.tooltip = `${this.label} (Weight: ${this.weight.toFixed(2)})`;
     this.description = this.weight.toFixed(2);
+    this.iconPath = vscode.ThemeIcon.File;
   }
 }
 
-export class GraphTreeDataProvider
-  implements vscode.TreeDataProvider<FileNode>
-{
+export class DoiListProvider implements vscode.TreeDataProvider<FileNode> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileNode | undefined | null | void
   > = new vscode.EventEmitter<FileNode | undefined | null | void>();
@@ -25,7 +24,7 @@ export class GraphTreeDataProvider
     FileNode | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
-  constructor(private graph: CodeGraph) {}
+  constructor(private graph: CodeGraph, private rootPath: string) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -39,14 +38,12 @@ export class GraphTreeDataProvider
     if (element) {
       return Promise.resolve([]);
     } else {
-      const sortedNodes = Array.from(this.graph.getNodes().entries())
-        .sort((a, b) => b[1].weight - a[1].weight)
-        .slice(0, 10); // Show top 10 nodes
+      const sortedNodes = this.graph.getSortedNodes();
 
       return Promise.resolve(
         sortedNodes.map(([filePath, node]) => {
           return new FileNode(
-            path.basename(filePath),
+            path.relative(this.rootPath, filePath),
             vscode.TreeItemCollapsibleState.None,
             node.weight,
             {

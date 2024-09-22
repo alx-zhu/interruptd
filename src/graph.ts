@@ -13,10 +13,12 @@ interface FileNode {
 
 class CodeGraph {
   // Constants
-  private MODIFYWEIGHT: number = 0.1;
-  private NAVWEIGHT: number = 0.05;
-  private DECAYWEIGHT: number = 0.001;
-  private CODEEXTS: string[] = [".ts", ".js"];
+  private MODIFYWEIGHT: number = 1;
+  private NAVWEIGHT: number = 10;
+  private DECAYWEIGHT: number = 0.05;
+  private DECAYFACTOR: number = 0.5;
+  private MAX_DEPTH: number = 1;
+  private CODEEXTS: string[] = [".ts"];
 
   private nodes: Map<string, FileNode> = new Map();
   private edges: Map<string, Set<string>> = new Map();
@@ -53,6 +55,13 @@ class CodeGraph {
     }
   }
 
+  private updateGraph() {
+    // TODO: Update graph when a new file and import statement is added
+    // - Can track if new import statements added using diff
+    // When a new file is added, add the node and all of its dependencies to the graph
+    // When a new import statement is added, add the edge to the graph
+  }
+
   // Parses the file and adds the dependencies as edges
   private async addEdgesFromFile(filePath: string) {
     try {
@@ -71,13 +80,15 @@ class CodeGraph {
     const ext = path.extname(filePath).toLowerCase();
     const dependencies: string[] = [];
 
-    console.log("Extracting dependencies for " + filePath);
-
     if (ext === ".ts" || ext === ".js") {
       const importRegex = /from\s+['"](.+?)['"]/g;
       let match;
       while ((match = importRegex.exec(content)) !== null) {
-        dependencies.push(match[1]);
+        const importPath = match[1];
+        // Only include relative imports or absolute imports within the project
+        if (importPath.startsWith(".") || importPath.startsWith("/")) {
+          dependencies.push(importPath);
+        }
       }
     }
     return dependencies;
@@ -90,32 +101,47 @@ class CodeGraph {
 
   private addNode(filePath: string, weight: number = 0) {
     let updatedPath = filePath;
+    // Assumes file extension is .ts
     if (!path.extname(filePath)) {
       updatedPath = `${filePath}.ts`;
     }
     if (!this.nodes.has(updatedPath)) {
       this.nodes.set(updatedPath, { weight });
     }
+    return updatedPath;
   }
 
   private addEdge(startPath: string, endPath: string) {
-    this.addNode(startPath);
-    this.addNode(endPath);
-    if (!this.edges.has(startPath)) {
-      this.edges.set(startPath, new Set());
+    const updatedStartPath = this.addNode(startPath);
+    const updatedEndPath = this.addNode(endPath);
+    if (!this.edges.has(updatedStartPath)) {
+      this.edges.set(updatedStartPath, new Set());
     }
-    if (!this.edges.has(endPath)) {
-      this.edges.set(endPath, new Set());
+    if (!this.edges.has(updatedEndPath)) {
+      this.edges.set(updatedEndPath, new Set());
     }
 
-    this.edges.get(startPath)?.add(endPath);
-    this.edges.get(endPath)?.add(startPath);
+    this.edges.get(updatedStartPath)?.add(updatedEndPath);
+    this.edges.get(updatedEndPath)?.add(updatedStartPath);
   }
 
-  private updateWeight(filePath: string, addedWeight: number) {
-    this.addNode(filePath);
-    const node = this.nodes.get(filePath)!;
-    this.nodes.set(filePath, { weight: node.weight + addedWeight });
+  private updateWeight(
+    filePath: string,
+    addedWeight: number,
+    depth: number = 0
+  ) {
+    if (this.nodes.has(filePath)) {
+      const node = this.nodes.get(filePath)!;
+      this.nodes.set(filePath, {
+        weight: node.weight + addedWeight * Math.pow(this.DECAYFACTOR, depth),
+      });
+      // Update all of the nodes that depend on the updated node
+      if (depth <= this.MAX_DEPTH) {
+        this.edges.get(filePath)?.forEach((dep) => {
+          this.updateWeight(dep, addedWeight, depth + 1);
+        });
+      }
+    }
   }
 
   // Lazy updating of decays, edits, updates (for the future)
@@ -143,9 +169,19 @@ class CodeGraph {
     console.log(this.nodes, this.edges);
   }
 
-  getNodes(): Map<string, FileNode> {
-    return this.nodes;
+  getNodeWeight(filePath: string): number {
+    return this.nodes.get(filePath)?.weight || 0;
   }
+
+  getSortedNodes(): [string, FileNode][] {
+    return Array.from(this.nodes.entries()).sort(
+      (a, b) => b[1].weight - a[1].weight
+    );
+  }
+
+  // getNodes(): Map<string, FileNode> {
+  //   return this.nodes;
+  // }
 
   getRootPath(): string {
     return this.rootPath;
