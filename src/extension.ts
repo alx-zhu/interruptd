@@ -44,8 +44,16 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const refreshCommand = vscode.commands.registerCommand(
+    "interruptd.refresh",
+    () => {
+      treeDataProvider.refresh();
+      weightedFileExplorer.refresh();
+    }
+  );
+
   // Update the graph when a document is changed
-  const onTextChangeListener = vscode.workspace.onDidChangeTextDocument(
+  const onFileChangeListener = vscode.workspace.onDidChangeTextDocument(
     (event) => {
       // Here you can access the changed document and perform actions
       if (event.document.uri.scheme === "file") {
@@ -56,9 +64,10 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Refresh the graph when a document is saved
-  const onSaveListener = vscode.workspace.onDidSaveTextDocument((event) => {
+  const onFileSaveListener = vscode.workspace.onDidSaveTextDocument((event) => {
     console.log(`Document saved: ${event.uri}`);
     if (event.uri.scheme === "file") {
+      graph.saveFile(event.uri.fsPath);
       treeDataProvider.refresh();
       weightedFileExplorer.refresh();
     }
@@ -83,11 +92,28 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Add this new listener for file creation
+  const onFileCreateListener = vscode.workspace.onDidCreateFiles((event) => {
+    for (const file of event.files) {
+      if (file.scheme === "file") {
+        console.log(`New file created: ${file.fsPath}`);
+        graph.addFile(file.fsPath);
+        treeDataProvider.refresh();
+        weightedFileExplorer.refresh();
+      }
+    }
+  });
+
+  // Need to detect when a file is deleted
+  // Need to detect when a file is moved/renamed
+
   context.subscriptions.push(
     displayGraphCommand,
-    onTextChangeListener,
-    onSaveListener,
-    onFileSelectListener
+    refreshCommand,
+    onFileChangeListener,
+    onFileSaveListener,
+    onFileSelectListener,
+    onFileCreateListener
   );
 }
 

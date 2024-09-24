@@ -16,7 +16,7 @@ class CodeGraph {
   private MODIFYWEIGHT: number = 1;
   private NAVWEIGHT: number = 10;
   private DECAYWEIGHT: number = 0.05;
-  private DECAYFACTOR: number = 0.5;
+  private DECAYFACTOR: number = 0.2;
   private MAX_DEPTH: number = 1;
   private CODEEXTS: string[] = [".ts"];
 
@@ -25,9 +25,7 @@ class CodeGraph {
   private rootPath: string;
 
   constructor(rootPath: string) {
-    // this.rootPath = rootPath;
     this.rootPath = path.join(rootPath, "src");
-    console.log(this.rootPath);
   }
 
   async initialize() {
@@ -45,11 +43,13 @@ class CodeGraph {
         const filePath = path.resolve(dirPath, file.name);
         if (file.isDirectory()) {
           queue.push(filePath);
-        } else if (this.isCodeFile(filePath)) {
+        } else {
           // Add node only adds a node if it hasn't already been added
           this.addNode(filePath);
-          // Add all of the dependencies as edges. Edges are sets, so adding duplicates has no effect.
-          await this.addEdgesFromFile(filePath);
+          if (this.isCodeFile(filePath)) {
+            // Add all of the dependencies as edges. Edges are sets, so adding duplicates has no effect.
+            await this.addEdgesFromFile(filePath);
+          }
         }
       }
     }
@@ -64,34 +64,41 @@ class CodeGraph {
 
   // Parses the file and adds the dependencies as edges
   private async addEdgesFromFile(filePath: string) {
-    try {
-      const content = await fs.readFile(filePath, "utf8");
-      this.extractDependencies(filePath, content).forEach((dep) => {
-        const absolutePath = path.resolve(path.dirname(filePath), dep);
-        this.addEdge(filePath, absolutePath);
-      });
-    } catch (error) {
-      console.error(`Error parsing file ${filePath}:`, error);
-    }
+    const dependencies = await this.extractAbsoluteDependencies(filePath);
+    dependencies.forEach((dep) => {
+      this.addEdge(filePath, dep);
+    });
   }
 
-  // Generalizable function to extract dependencies from any file content
-  private extractDependencies(filePath: string, content: string): string[] {
-    const ext = path.extname(filePath).toLowerCase();
-    const dependencies: string[] = [];
+  // Generalizable function to extract dependencies from any file content. Returns absolute paths.
+  private async extractAbsoluteDependencies(
+    filePath: string
+  ): Promise<string[]> {
+    try {
+      const content = await fs.readFile(filePath, "utf8");
+      const ext = path.extname(filePath).toLowerCase();
+      const dependencies: string[] = [];
 
-    if (ext === ".ts" || ext === ".js") {
-      const importRegex = /from\s+['"](.+?)['"]/g;
-      let match;
-      while ((match = importRegex.exec(content)) !== null) {
-        const importPath = match[1];
-        // Only include relative imports or absolute imports within the project
-        if (importPath.startsWith(".") || importPath.startsWith("/")) {
-          dependencies.push(importPath);
+      if (ext === ".ts") {
+        const importRegex = /from\s+['"](.+?)['"]/g;
+        let match;
+        while ((match = importRegex.exec(content)) !== null) {
+          const importPath = match[1];
+          // Only include relative imports or absolute imports within the project
+          if (importPath.startsWith(".") || importPath.startsWith("/")) {
+            const absolutePath = path.resolve(
+              path.dirname(filePath),
+              importPath
+            );
+            dependencies.push(absolutePath);
+          }
         }
       }
+      return dependencies;
+    } catch (error) {
+      console.error(`Error parsing file ${filePath}:`, error);
+      return [];
     }
-    return dependencies;
   }
 
   private isCodeFile(filePath: string): boolean {
@@ -125,9 +132,10 @@ class CodeGraph {
     this.edges.get(updatedEndPath)?.add(updatedStartPath);
   }
 
-  private updateWeight(
+  private addWeight(
     filePath: string,
     addedWeight: number,
+    propagate: boolean = true,
     depth: number = 0
   ) {
     if (this.nodes.has(filePath)) {
@@ -136,18 +144,13 @@ class CodeGraph {
         weight: node.weight + addedWeight * Math.pow(this.DECAYFACTOR, depth),
       });
       // Update all of the nodes that depend on the updated node
-      if (depth <= this.MAX_DEPTH) {
+      if (propagate && depth <= this.MAX_DEPTH) {
         this.edges.get(filePath)?.forEach((dep) => {
-          this.updateWeight(dep, addedWeight, depth + 1);
+          this.addWeight(dep, addedWeight, propagate, depth + 1);
         });
       }
     }
   }
-
-  // Lazy updating of decays, edits, updates (for the future)
-  // private lazyDecayWeights() {}
-  // lazyEditFile() {}
-  // lazyNavToFile() {}
 
   private decayWeights() {
     this.nodes.forEach((node) => {
@@ -155,13 +158,37 @@ class CodeGraph {
     });
   }
 
+  // Updates the dependencies of a file after it has been modified
+  private async updateNodeDependencies(filePath: string) {
+    const dependencies = await this.extractAbsoluteDependencies(filePath);
+    const newDependencies = dependencies.filter(
+      (dep) => !this.edges.get(filePath)?.has(dep)
+    );
+    newDependencies.forEach((dep) => {
+      this.addEdge(filePath, dep);
+    });
+  }
+
+  // Graph Modifiers
+  addFile(filePath: string) {
+    this.addNode(filePath);
+    // this.addEdgesFromFile(filePath); // TODO: Can add weights while adding edges maybe?
+    // this.getNodeNeighbors(filePath).forEach((neighbor) => {
+    //   this.addWeight(filePath, this.getNodeWeight(neighbor) * this.DECAYFACTOR);
+    // });
+  }
+
+  saveFile(filePath: string) {
+    this.updateNodeDependencies(filePath);
+  }
+
   modifyFile(filePath: string) {
-    this.updateWeight(filePath, this.MODIFYWEIGHT);
+    this.addWeight(filePath, this.MODIFYWEIGHT);
     this.decayWeights();
   }
 
   navToFile(filePath: string) {
-    this.updateWeight(filePath, this.NAVWEIGHT);
+    this.addWeight(filePath, this.NAVWEIGHT);
     this.decayWeights();
   }
 
@@ -169,8 +196,13 @@ class CodeGraph {
     console.log(this.nodes, this.edges);
   }
 
+  // Getters
   getNodeWeight(filePath: string): number {
     return this.nodes.get(filePath)?.weight || 0;
+  }
+
+  getNodeNeighbors(filePath: string): Set<string> {
+    return this.edges.get(filePath) || new Set();
   }
 
   getSortedNodes(): [string, FileNode][] {

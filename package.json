@@ -16,6 +16,11 @@
       {
         "command": "interruptd.launchInterruptd",
         "title": "Launch Interruptd"
+      },
+      {
+        "command": "interruptd.refresh",
+        "title": "Refresh Interruptd",
+        "icon": "$(sync)"
       }
     ],
     "viewsContainers": {
@@ -37,7 +42,16 @@
       "interruptdExplorer": [
         {
           "id": "interruptdFileExplorer",
-          "name": "Interruptd File Explorer"
+          "name": "DOI Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "interruptd.refresh",
+          "when": "view == interruptdFileExplorer",
+          "group": "navigation"
         }
       ]
     }
