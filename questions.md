@@ -9,6 +9,9 @@
 1. Only show files with high interest/mid or higher interest, etc (hide the files that are not interesting enough)
 2. Track interest on a function-level
 3. People found timelines generally more useful than DOI trees. There already is one in VSCode by default.
+4. May need to represent files using some ID's instead of by filePaths
+   - This would make it easier to change names/locations.
+   - Ex: If src/graph.ts is ID 1, instead of changing every edge that has graph.ts, I can just change ID 1 to the renamed file path
 
 # Todos:
 

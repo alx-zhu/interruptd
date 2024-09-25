@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import CodeGraph from "./graph";
 import { DoiListProvider } from "./doiListProvider";
-import { WeightedFileExplorer } from "./weightedFileExplorer";
+import { DoiExplorer } from "./doiExplorerProvider";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -23,34 +23,11 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.window.registerTreeDataProvider("interruptdDoiList", treeDataProvider);
   console.log("Tree data provider registered");
 
-  const weightedFileExplorer = new WeightedFileExplorer(graph, rootPath);
-  vscode.window.registerTreeDataProvider(
-    "interruptdFileExplorer",
-    weightedFileExplorer
-  );
+  const doiExplorer = new DoiExplorer(graph, rootPath);
+  vscode.window.registerTreeDataProvider("doiExplorer", doiExplorer);
   console.log("Weighted file explorer registered");
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
-  const displayGraphCommand = vscode.commands.registerCommand(
-    "interruptd.launchInterruptd",
-    () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      vscode.window.showInformationMessage("Generating Graph.");
-      graph.displayGraph();
-      treeDataProvider.refresh();
-    }
-  );
-
-  const refreshCommand = vscode.commands.registerCommand(
-    "interruptd.refresh",
-    () => {
-      treeDataProvider.refresh();
-      weightedFileExplorer.refresh();
-    }
-  );
+  const commands = registerCommands(graph, treeDataProvider, doiExplorer);
 
   // Update the graph when a document is changed
   const onFileChangeListener = vscode.workspace.onDidChangeTextDocument(
@@ -69,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (event.uri.scheme === "file") {
       graph.saveFile(event.uri.fsPath);
       treeDataProvider.refresh();
-      weightedFileExplorer.refresh();
+      doiExplorer.refresh();
     }
   });
 
@@ -99,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
         console.log(`New file created: ${file.fsPath}`);
         graph.addFile(file.fsPath);
         treeDataProvider.refresh();
-        weightedFileExplorer.refresh();
+        doiExplorer.refresh();
       }
     }
   });
@@ -108,8 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Need to detect when a file is moved/renamed
 
   context.subscriptions.push(
-    displayGraphCommand,
-    refreshCommand,
+    ...commands,
     onFileChangeListener,
     onFileSaveListener,
     onFileSelectListener,
@@ -117,11 +93,67 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 }
 
+function registerCommands(
+  graph: CodeGraph,
+  treeDataProvider: DoiListProvider,
+  doiExplorer: DoiExplorer
+) {
+  const displayGraphCommand = vscode.commands.registerCommand(
+    "interruptd.launchInterruptd",
+    () => {
+      // The code you place here will be executed every time your command is executed
+      // Display a message box to the user
+      vscode.window.showInformationMessage("Generating Graph.");
+      graph.displayGraph();
+      treeDataProvider.refresh();
+    }
+  );
+
+  const refreshCommand = vscode.commands.registerCommand(
+    "interruptd.refresh",
+    () => {
+      treeDataProvider.refresh();
+      doiExplorer.refresh();
+    }
+  );
+
+  const filterNoneCommand = vscode.commands.registerCommand(
+    "interruptd.filterNone",
+    () => {
+      doiExplorer.filterNone();
+    }
+  );
+
+  const filterHighCommand = vscode.commands.registerCommand(
+    "interruptd.filterHigh",
+    () => {
+      doiExplorer.filterHigh();
+    }
+  );
+
+  const filterMediumCommand = vscode.commands.registerCommand(
+    "interruptd.filterMedium",
+    () => {
+      doiExplorer.filterMedium();
+    }
+  );
+
+  const filterLowCommand = vscode.commands.registerCommand(
+    "interruptd.filterLow",
+    () => {
+      doiExplorer.filterLow();
+    }
+  );
+
+  return [
+    displayGraphCommand,
+    refreshCommand,
+    filterNoneCommand,
+    filterHighCommand,
+    filterMediumCommand,
+    filterLowCommand,
+  ];
+}
+
 // This method is called when your extension is deactivated
 export function deactivate() {}
-
-// Useful functions:
-// openTextDocument(uri: Uri): Thenable<TextDocument>
-// save(uri: Uri): Thenable<Uri | undefined>
-// onDidChangeTextDocument
-// type: event: TextDocumentChangeEvent

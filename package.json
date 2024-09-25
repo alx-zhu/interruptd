@@ -21,13 +21,33 @@
         "command": "interruptd.refresh",
         "title": "Refresh Interruptd",
         "icon": "$(sync)"
+      },
+      {
+        "command": "interruptd.filterNone",
+        "title": "1. Filter None",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "interruptd.filterHigh",
+        "title": "2. Filter High",
+        "icon": "$(triangle-up)"
+      },
+      {
+        "command": "interruptd.filterMedium",
+        "title": "3. Filter Medium",
+        "icon": "$(dash)"
+      },
+      {
+        "command": "interruptd.filterLow",
+        "title": "4. Filter Low",
+        "icon": "$(triangle-down)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "interruptdExplorer",
-          "title": "Interruptd Explorer",
+          "id": "interruptd",
+          "title": "Interruptd",
           "icon": "$(repo)"
         }
       ]
@@ -39,9 +59,9 @@
           "name": "Degree of Interest List"
         }
       ],
-      "interruptdExplorer": [
+      "interruptd": [
         {
-          "id": "interruptdFileExplorer",
+          "id": "doiExplorer",
           "name": "DOI Explorer"
         }
       ]
@@ -50,7 +70,27 @@
       "view/title": [
         {
           "command": "interruptd.refresh",
-          "when": "view == interruptdFileExplorer",
+          "when": "view == doiExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "interruptd.filterNone",
+          "when": "view == doiExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "interruptd.filterHigh",
+          "when": "view == doiExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "interruptd.filterMedium",
+          "when": "view == doiExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "interruptd.filterLow",
+          "when": "view == doiExplorer",
           "group": "navigation"
         }
       ]
