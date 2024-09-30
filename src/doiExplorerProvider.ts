@@ -2,42 +2,8 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import CodeGraph from "./graph";
-import { LOW_WEIGHT, MED_WEIGHT, HIGH_WEIGHT } from "./constants";
-class FileNode extends vscode.TreeItem {
-  constructor(
-    public readonly fullPath: string,
-    public readonly label: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly weight: number,
-    public readonly command?: vscode.Command
-  ) {
-    super(label, collapsibleState);
-    this.tooltip = `${this.label} (Weight: ${this.weight.toFixed(2)})`;
-    this.description = this.weight.toFixed(2);
-    this.iconPath = this.getIcon();
-  }
-
-  private getIcon(): vscode.ThemeIcon {
-    if (this.weight > HIGH_WEIGHT) {
-      return new vscode.ThemeIcon(
-        "circle-filled",
-        new vscode.ThemeColor("charts.red")
-      );
-    } else if (this.weight > MED_WEIGHT) {
-      return new vscode.ThemeIcon(
-        "circle-filled",
-        new vscode.ThemeColor("charts.yellow")
-      );
-    } else if (this.weight > LOW_WEIGHT) {
-      return new vscode.ThemeIcon(
-        "circle-filled",
-        new vscode.ThemeColor("charts.green")
-      );
-    } else {
-      return new vscode.ThemeIcon("circle-outline");
-    }
-  }
-}
+import { LOW_WEIGHT, MED_WEIGHT, HIGH_WEIGHT } from "./shared/constants";
+import { FileNode } from "./shared/fileNode";
 
 export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
   private _onDidChangeTreeData: vscode.EventEmitter<
@@ -106,8 +72,11 @@ export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
     const nodes = await Promise.all(
       entries.map(async (entry) => {
         const fullPath = path.join(dirPath, entry.name);
-        const uri = vscode.Uri.file(fullPath);
         const weight = this.graph.getNodeWeight(fullPath);
+
+        if (entry.name.startsWith(".")) {
+          return;
+        }
 
         if (entry.isDirectory()) {
           const children = await this.getFileNodes(fullPath);
@@ -122,7 +91,8 @@ export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
             folderWeight >= this.minWeight && this.minWeight > 0 // Only expand folders by default if minWeight is set
               ? vscode.TreeItemCollapsibleState.Expanded
               : vscode.TreeItemCollapsibleState.Collapsed,
-            folderWeight
+            folderWeight,
+            true
           );
         } else {
           if (weight >= this.minWeight) {
@@ -131,6 +101,7 @@ export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
               entry.name,
               vscode.TreeItemCollapsibleState.None,
               weight,
+              false,
               {
                 command: "vscode.open",
                 title: "Open File",

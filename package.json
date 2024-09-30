@@ -12,10 +12,16 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsWelcome": [
+      {
+        "view": "neighborDoiList",
+        "contents": "No neighbors found."
+      }
+    ],
     "commands": [
       {
-        "command": "interruptd.launchInterruptd",
-        "title": "Launch Interruptd"
+        "command": "interruptd.generateGraph",
+        "title": "Generate Graph"
       },
       {
         "command": "interruptd.refresh",
@@ -24,23 +30,28 @@
       },
       {
         "command": "interruptd.filterNone",
-        "title": "1. Filter None",
-        "icon": "$(clear-all)"
+        "title": "4. Filter None",
+        "icon": "$(stop)"
       },
       {
         "command": "interruptd.filterHigh",
-        "title": "2. Filter High",
-        "icon": "$(triangle-up)"
+        "title": "1. Filter High",
+        "icon": "$(star-full)"
       },
       {
         "command": "interruptd.filterMedium",
-        "title": "3. Filter Medium",
-        "icon": "$(dash)"
+        "title": "2. Filter Medium",
+        "icon": "$(star-half)"
       },
       {
         "command": "interruptd.filterLow",
-        "title": "4. Filter Low",
-        "icon": "$(triangle-down)"
+        "title": "3. Filter Low",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "interruptd.revealInExplorer",
+        "title": "Reveal in Explorer",
+        "icon": "$(file-code)"
       }
     ],
     "viewsContainers": {
@@ -63,6 +74,10 @@
         {
           "id": "doiExplorer",
           "name": "DOI Explorer"
+        },
+        {
+          "id": "neighborDoiList",
+          "name": "DOI Neighbors"
         }
       ]
     },
@@ -75,21 +90,24 @@
         },
         {
           "command": "interruptd.filterNone",
-          "when": "view == doiExplorer",
-          "group": "navigation"
+          "when": "view == doiExplorer"
         },
         {
           "command": "interruptd.filterHigh",
-          "when": "view == doiExplorer",
-          "group": "navigation"
+          "when": "view == doiExplorer"
         },
         {
           "command": "interruptd.filterMedium",
-          "when": "view == doiExplorer",
-          "group": "navigation"
+          "when": "view == doiExplorer"
         },
         {
           "command": "interruptd.filterLow",
+          "when": "view == doiExplorer"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "interruptd.revealInExplorer",
           "when": "view == doiExplorer",
           "group": "navigation"
         }

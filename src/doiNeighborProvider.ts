@@ -3,7 +3,7 @@ import * as path from "path";
 import CodeGraph from "./graph";
 import { FileNode } from "./shared/fileNode";
 
-export class DoiListProvider implements vscode.TreeDataProvider<FileNode> {
+export class DoiNeighborProvider implements vscode.TreeDataProvider<FileNode> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileNode | undefined | null | void
   > = new vscode.EventEmitter<FileNode | undefined | null | void>();
@@ -11,10 +11,15 @@ export class DoiListProvider implements vscode.TreeDataProvider<FileNode> {
     FileNode | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
-  constructor(private graph: CodeGraph, private rootPath: string) {}
+  constructor(private graph: CodeGraph, private currentPath: string) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  setCurrentPath(newPath: string) {
+    this.currentPath = newPath;
+    this.refresh();
   }
 
   getTreeItem(element: FileNode): vscode.TreeItem {
@@ -25,13 +30,13 @@ export class DoiListProvider implements vscode.TreeDataProvider<FileNode> {
     if (element) {
       return Promise.resolve([]);
     } else {
-      const sortedNodes = this.graph.getSortedNodes();
+      const neighborNodes = this.graph.getSortedNeighbors(this.currentPath);
 
       return Promise.resolve(
-        sortedNodes.map(([filePath, node]) => {
+        neighborNodes.map(([filePath, node]) => {
           return new FileNode(
             filePath,
-            path.relative(this.rootPath, filePath),
+            path.relative(this.currentPath, filePath),
             vscode.TreeItemCollapsibleState.None,
             node.weight,
             false,

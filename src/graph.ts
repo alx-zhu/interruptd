@@ -211,6 +211,11 @@ class CodeGraph {
     );
   }
 
+  getSortedNeighbors(filePath: string): [string, FileNode][] {
+    const neighbors = this.getNodeNeighbors(filePath);
+    return this.getSortedNodes().filter((node) => neighbors.has(node[0]));
+  }
+
   // getNodes(): Map<string, FileNode> {
   //   return this.nodes;
   // }

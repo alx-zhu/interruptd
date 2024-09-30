@@ -18,3 +18,7 @@
 1. Need to find the right threshold so as not to cause too much noise
 2. Need to make sure the new file explorer can also have the functionalities of a normal file explorer.
 3. Try adding a refresh button to get an idea of how to add buttons.
+4. Handle deleting files and import statements
+5. Create separate filters for weight, and 1-depth weight? reduce noise
+6. Create a connected files tab, which shows the list of files that are neighbors of the currently opened file
+   - They should be sorted by weight.

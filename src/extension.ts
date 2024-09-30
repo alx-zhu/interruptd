@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import CodeGraph from "./graph";
 import { DoiListProvider } from "./doiListProvider";
+import { DoiNeighborProvider } from "./doiNeighborProvider";
 import { DoiExplorer } from "./doiExplorerProvider";
 
 // This method is called when your extension is activated
@@ -19,15 +20,18 @@ export async function activate(context: vscode.ExtensionContext) {
   const graph = new CodeGraph(rootPath);
   await graph.initialize();
 
-  const treeDataProvider = new DoiListProvider(graph, rootPath);
-  vscode.window.registerTreeDataProvider("interruptdDoiList", treeDataProvider);
+  const doiList = new DoiListProvider(graph, rootPath);
+  vscode.window.registerTreeDataProvider("interruptdDoiList", doiList);
   console.log("Tree data provider registered");
 
   const doiExplorer = new DoiExplorer(graph, rootPath);
   vscode.window.registerTreeDataProvider("doiExplorer", doiExplorer);
   console.log("Weighted file explorer registered");
 
-  const commands = registerCommands(graph, treeDataProvider, doiExplorer);
+  const neighborList = new DoiNeighborProvider(graph, rootPath);
+  vscode.window.registerTreeDataProvider("neighborDoiList", neighborList);
+
+  const commands = registerCommands(graph, doiList, doiExplorer, neighborList);
 
   // Update the graph when a document is changed
   const onFileChangeListener = vscode.workspace.onDidChangeTextDocument(
@@ -45,8 +49,9 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log(`Document saved: ${event.uri}`);
     if (event.uri.scheme === "file") {
       graph.saveFile(event.uri.fsPath);
-      treeDataProvider.refresh();
+      doiList.refresh();
       doiExplorer.refresh();
+      neighborList.refresh();
     }
   });
 
@@ -54,7 +59,7 @@ export async function activate(context: vscode.ExtensionContext) {
   //   if (event.uri.scheme === "file") {
   //     console.log(`Document opened: ${event.uri.fsPath}`);
   //     graph.navToFile(event.uri.fsPath);
-  //     treeDataProvider.refresh();
+  //     doiList.refresh();
   //   }
   // });
 
@@ -64,7 +69,9 @@ export async function activate(context: vscode.ExtensionContext) {
       if (editor && editor.document.uri.scheme === "file") {
         console.log(`File selected: ${editor.document.uri.fsPath}`);
         graph.navToFile(editor.document.uri.fsPath);
-        treeDataProvider.refresh();
+        doiList.refresh();
+        doiExplorer.refresh();
+        neighborList.setCurrentPath(editor.document.uri.fsPath);
       }
     }
   );
@@ -75,8 +82,9 @@ export async function activate(context: vscode.ExtensionContext) {
       if (file.scheme === "file") {
         console.log(`New file created: ${file.fsPath}`);
         graph.addFile(file.fsPath);
-        treeDataProvider.refresh();
+        doiList.refresh();
         doiExplorer.refresh();
+        neighborList.refresh();
       }
     }
   });
@@ -95,25 +103,27 @@ export async function activate(context: vscode.ExtensionContext) {
 
 function registerCommands(
   graph: CodeGraph,
-  treeDataProvider: DoiListProvider,
-  doiExplorer: DoiExplorer
+  doiList: DoiListProvider,
+  doiExplorer: DoiExplorer,
+  neighborList: DoiNeighborProvider
 ) {
-  const displayGraphCommand = vscode.commands.registerCommand(
-    "interruptd.launchInterruptd",
+  const generateGraphCommand = vscode.commands.registerCommand(
+    "interruptd.generateGraph",
     () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
       vscode.window.showInformationMessage("Generating Graph.");
-      graph.displayGraph();
-      treeDataProvider.refresh();
+      graph.initialize();
+      doiList.refresh();
+      doiExplorer.refresh();
+      neighborList.refresh();
     }
   );
 
   const refreshCommand = vscode.commands.registerCommand(
     "interruptd.refresh",
     () => {
-      treeDataProvider.refresh();
+      doiList.refresh();
       doiExplorer.refresh();
+      neighborList.refresh();
     }
   );
 
@@ -146,7 +156,7 @@ function registerCommands(
   );
 
   return [
-    displayGraphCommand,
+    generateGraphCommand,
     refreshCommand,
     filterNoneCommand,
     filterHighCommand,
