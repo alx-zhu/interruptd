@@ -55,13 +55,6 @@ class CodeGraph {
     }
   }
 
-  private updateGraph() {
-    // TODO: Update graph when a new file and import statement is added
-    // - Can track if new import statements added using diff
-    // When a new file is added, add the node and all of its dependencies to the graph
-    // When a new import statement is added, add the edge to the graph
-  }
-
   // Parses the file and adds the dependencies as edges
   private async addEdgesFromFile(filePath: string) {
     const dependencies = await this.extractAbsoluteDependencies(filePath);
@@ -79,6 +72,7 @@ class CodeGraph {
       const ext = path.extname(filePath).toLowerCase();
       const dependencies: string[] = [];
 
+      // Handle dependencies for each language
       if (ext === ".ts") {
         const importRegex = /from\s+['"](.+?)['"]/g;
         let match;
@@ -116,6 +110,39 @@ class CodeGraph {
       this.nodes.set(updatedPath, { weight });
     }
     return updatedPath;
+  }
+
+  private removeNodeNaive(filePath: string) {
+    this.nodes.delete(filePath);
+    this.edges.delete(filePath);
+    this.edges.forEach((neighbors) => {
+      neighbors.delete(filePath);
+    });
+  }
+
+  // In the future, can use an implementation of IDs to make renaming easier.
+  // Currently, using naive implementation of brute force deleting old references and replacing them with new path.
+  private renameNodeNaive(oldPath: string, newPath: string) {
+    if (this.nodes.has(oldPath)) {
+      const node = this.nodes.get(oldPath)!;
+      this.nodes.delete(oldPath);
+      this.nodes.set(newPath, node);
+    }
+
+    // Update edges
+    if (this.edges.has(oldPath)) {
+      const neighbors = this.edges.get(oldPath);
+      this.edges.delete(oldPath);
+      this.edges.set(newPath, neighbors!); // Move neighbors to the new path
+    }
+
+    // Update edges that reference the old path
+    this.edges.forEach((neighbors) => {
+      if (neighbors.has(oldPath)) {
+        neighbors.delete(oldPath);
+        neighbors.add(newPath); // Add the new path
+      }
+    });
   }
 
   private addEdge(startPath: string, endPath: string) {
@@ -164,6 +191,7 @@ class CodeGraph {
     const newDependencies = dependencies.filter(
       (dep) => !this.edges.get(filePath)?.has(dep)
     );
+    // Need to handle removing dependencies
     newDependencies.forEach((dep) => {
       this.addEdge(filePath, dep);
     });
@@ -172,10 +200,14 @@ class CodeGraph {
   // Graph Modifiers
   addFile(filePath: string) {
     this.addNode(filePath);
-    // this.addEdgesFromFile(filePath); // TODO: Can add weights while adding edges maybe?
-    // this.getNodeNeighbors(filePath).forEach((neighbor) => {
-    //   this.addWeight(filePath, this.getNodeWeight(neighbor) * this.DECAYFACTOR);
-    // });
+  }
+
+  removeFile(filePath: string) {
+    this.removeNodeNaive(filePath);
+  }
+
+  renameFile(oldPath: string, newPath: string) {
+    this.renameNodeNaive(oldPath, newPath);
   }
 
   saveFile(filePath: string) {

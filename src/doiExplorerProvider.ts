@@ -5,7 +5,7 @@ import CodeGraph from "./graph";
 import { LOW_WEIGHT, MED_WEIGHT, HIGH_WEIGHT } from "./shared/constants";
 import { FileNode } from "./shared/fileNode";
 
-export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
+export class DoiExplorerProvider implements vscode.TreeDataProvider<FileNode> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileNode | undefined | null | void
   > = new vscode.EventEmitter<FileNode | undefined | null | void>();
@@ -21,7 +21,6 @@ export class DoiExplorer implements vscode.TreeDataProvider<FileNode> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
-    console.log("Min Weight: ", this.minWeight);
   }
 
   // Placeholder for refreshing a specific file path instead of all nodes.

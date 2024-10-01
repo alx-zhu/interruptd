@@ -1,13 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import CodeGraph from "./graph";
 import { DoiListProvider } from "./doiListProvider";
 import { DoiNeighborProvider } from "./doiNeighborProvider";
-import { DoiExplorer } from "./doiExplorerProvider";
+import { DoiExplorerProvider } from "./doiExplorerProvider";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders) {
@@ -19,24 +15,39 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const graph = new CodeGraph(rootPath);
   await graph.initialize();
+  graph.displayGraph();
 
   const doiList = new DoiListProvider(graph, rootPath);
   vscode.window.registerTreeDataProvider("interruptdDoiList", doiList);
   console.log("Tree data provider registered");
 
-  const doiExplorer = new DoiExplorer(graph, rootPath);
+  const doiExplorer = new DoiExplorerProvider(graph, rootPath);
   vscode.window.registerTreeDataProvider("doiExplorer", doiExplorer);
   console.log("Weighted file explorer registered");
 
   const neighborList = new DoiNeighborProvider(graph, rootPath);
   vscode.window.registerTreeDataProvider("neighborDoiList", neighborList);
 
+  const listeners = registerListeners(
+    graph,
+    doiList,
+    doiExplorer,
+    neighborList
+  );
   const commands = registerCommands(graph, doiList, doiExplorer, neighborList);
 
+  context.subscriptions.push(...commands, ...listeners);
+}
+
+function registerListeners(
+  graph: CodeGraph,
+  doiList: DoiListProvider,
+  doiExplorer: DoiExplorerProvider,
+  neighborList: DoiNeighborProvider
+) {
   // Update the graph when a document is changed
   const onFileChangeListener = vscode.workspace.onDidChangeTextDocument(
     (event) => {
-      // Here you can access the changed document and perform actions
       if (event.document.uri.scheme === "file") {
         console.log(`Document changed: ${event.document.uri}`);
         graph.modifyFile(event.document.uri.fsPath);
@@ -44,7 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Refresh the graph when a document is saved
+  // Update graph when a file is saved
   const onFileSaveListener = vscode.workspace.onDidSaveTextDocument((event) => {
     console.log(`Document saved: ${event.uri}`);
     if (event.uri.scheme === "file") {
@@ -55,15 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // const onOpenListener = vscode.workspace.onDidOpenTextDocument((event) => {
-  //   if (event.uri.scheme === "file") {
-  //     console.log(`Document opened: ${event.uri.fsPath}`);
-  //     graph.navToFile(event.uri.fsPath);
-  //     doiList.refresh();
-  //   }
-  // });
-
-  // Add this near your other event listeners
+  // Listen for navigating to files
   const onFileSelectListener = vscode.window.onDidChangeActiveTextEditor(
     (editor) => {
       if (editor && editor.document.uri.scheme === "file") {
@@ -76,35 +79,59 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Add this new listener for file creation
+  // Listen for new file creations
   const onFileCreateListener = vscode.workspace.onDidCreateFiles((event) => {
     for (const file of event.files) {
       if (file.scheme === "file") {
         console.log(`New file created: ${file.fsPath}`);
         graph.addFile(file.fsPath);
-        doiList.refresh();
-        doiExplorer.refresh();
-        neighborList.refresh();
       }
     }
+    doiList.refresh();
+    doiExplorer.refresh();
+    neighborList.refresh();
   });
 
-  // Need to detect when a file is deleted
-  // Need to detect when a file is moved/renamed
+  // Listen for file deletion
+  const onFileDeleteListener = vscode.workspace.onDidDeleteFiles((event) => {
+    for (const file of event.files) {
+      if (file.scheme === "file") {
+        console.log(`File deleted: ${file.fsPath}`);
+        graph.removeFile(file.fsPath);
+      }
+    }
+    doiList.refresh();
+    doiExplorer.refresh();
+    neighborList.refresh();
+  });
 
-  context.subscriptions.push(
-    ...commands,
+  // Listen for file renaming
+  const onFileRenameListener = vscode.workspace.onDidRenameFiles((event) => {
+    for (const { oldUri, newUri } of event.files) {
+      if (oldUri.scheme === "file" && newUri.scheme === "file") {
+        console.log(`File renamed from ${oldUri.fsPath} to ${newUri.fsPath}`);
+        graph.renameFile(oldUri.fsPath, newUri.fsPath); // Implement this method in your graph
+      }
+    }
+    doiList.refresh();
+    doiExplorer.refresh();
+    neighborList.refresh();
+  });
+
+  return [
     onFileChangeListener,
     onFileSaveListener,
     onFileSelectListener,
-    onFileCreateListener
-  );
+    onFileCreateListener,
+    onFileDeleteListener,
+    onFileRenameListener,
+  ];
 }
 
 function registerCommands(
   graph: CodeGraph,
   doiList: DoiListProvider,
-  doiExplorer: DoiExplorer,
+  doiExplorer: DoiExplorerProvider,
   neighborList: DoiNeighborProvider
 ) {
   const generateGraphCommand = vscode.commands.registerCommand(
