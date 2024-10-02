@@ -5,12 +5,6 @@ interface FileNode {
   weight: number;
 }
 
-// TODO: How to handle when files move or are deleted?
-// - Need to add some form of listener for the CRUD operations of files
-// - Update nodes on save
-// - How to update graph when a new file and import statement is added (i.e. a new edge is added)?
-// - Is it possible to detect when a new edge has been added?
-
 class CodeGraph {
   // Constants
   private MODIFYWEIGHT: number = 1;
@@ -171,7 +165,7 @@ class CodeGraph {
         weight: node.weight + addedWeight * Math.pow(this.DECAYFACTOR, depth),
       });
       // Update all of the nodes that depend on the updated node
-      if (propagate && depth <= this.MAX_DEPTH) {
+      if (propagate && depth < this.MAX_DEPTH) {
         this.edges.get(filePath)?.forEach((dep) => {
           this.addWeight(dep, addedWeight, propagate, depth + 1);
         });
@@ -186,15 +180,10 @@ class CodeGraph {
   }
 
   // Updates the dependencies of a file after it has been modified
+  // Naively just reset the dependencies to the new set on each save. May need to detect if imports are changed later on.
   private async updateNodeDependencies(filePath: string) {
     const dependencies = await this.extractAbsoluteDependencies(filePath);
-    const newDependencies = dependencies.filter(
-      (dep) => !this.edges.get(filePath)?.has(dep)
-    );
-    // Need to handle removing dependencies
-    newDependencies.forEach((dep) => {
-      this.addEdge(filePath, dep);
-    });
+    this.edges.set(filePath, new Set(dependencies));
   }
 
   // Graph Modifiers
@@ -247,10 +236,6 @@ class CodeGraph {
     const neighbors = this.getNodeNeighbors(filePath);
     return this.getSortedNodes().filter((node) => neighbors.has(node[0]));
   }
-
-  // getNodes(): Map<string, FileNode> {
-  //   return this.nodes;
-  // }
 
   getRootPath(): string {
     return this.rootPath;
