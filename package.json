@@ -20,38 +20,45 @@
     ],
     "commands": [
       {
+        "command": "interruptd.resetGraph",
+        "title": "Interruptd: Reset Graph"
+      },
+      {
+        "command": "interruptd.resetSavedGraph",
+        "title": "Interruptd: Reset Saved Graph"
+      },
+      {
         "command": "interruptd.generateGraph",
-        "title": "Generate Graph"
+        "title": "Interruptd: Generate Graph"
+      },
+      {
+        "command": "interruptd.saveGraph",
+        "title": "Interruptd: Save Graph"
       },
       {
         "command": "interruptd.refresh",
-        "title": "Refresh Interruptd",
+        "title": "Interruptd: Refresh Interruptd",
         "icon": "$(sync)"
       },
       {
         "command": "interruptd.filterNone",
-        "title": "4. Filter None",
+        "title": "Interruptd: Reset Filter",
         "icon": "$(stop)"
       },
       {
         "command": "interruptd.filterHigh",
-        "title": "1. Filter High",
+        "title": "Interruptd: Filter High",
         "icon": "$(star-full)"
       },
       {
         "command": "interruptd.filterMedium",
-        "title": "2. Filter Medium",
+        "title": "Interruptd: Filter Medium",
         "icon": "$(star-half)"
       },
       {
         "command": "interruptd.filterLow",
-        "title": "3. Filter Low",
+        "title": "Interruptd: Filter Low",
         "icon": "$(star-empty)"
-      },
-      {
-        "command": "interruptd.revealInExplorer",
-        "title": "Reveal in Explorer",
-        "icon": "$(file-code)"
       }
     ],
     "viewsContainers": {
@@ -103,13 +110,6 @@
         {
           "command": "interruptd.filterLow",
           "when": "view == doiExplorer"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "interruptd.revealInExplorer",
-          "when": "view == doiExplorer",
-          "group": "navigation"
         }
       ]
     }

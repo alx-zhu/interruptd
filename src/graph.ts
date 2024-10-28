@@ -16,13 +16,16 @@ class CodeGraph {
 
   private nodes: Map<string, FileNode> = new Map();
   private edges: Map<string, Set<string>> = new Map();
-  private rootPath: string;
 
-  constructor(rootPath: string) {
-    this.rootPath = path.join(rootPath, "src");
-  }
+  constructor(private rootPath: string) {}
 
   async initialize() {
+    await this.constructGraph(this.rootPath);
+  }
+
+  async resetGraph() {
+    this.nodes = new Map();
+    this.edges = new Map();
     await this.constructGraph(this.rootPath);
   }
 
@@ -186,7 +189,7 @@ class CodeGraph {
     this.edges.set(filePath, new Set(dependencies));
   }
 
-  // Graph Modifiers
+  // Graph Modifiers (Setters)
   addFile(filePath: string) {
     this.addNode(filePath);
   }
@@ -239,6 +242,37 @@ class CodeGraph {
 
   getRootPath(): string {
     return this.rootPath;
+  }
+
+  // Serializing
+  serialize(): string {
+    return JSON.stringify({
+      rootPath: this.rootPath,
+      nodes: Array.from(this.nodes.entries()),
+      edges: Array.from(this.edges.entries()).map(([node, edges]) => [
+        node,
+        Array.from(edges),
+      ]),
+    });
+  }
+
+  static deserialize(data: string) {
+    console.log(data);
+    const parsedData = JSON.parse(data);
+    console.log(parsedData);
+    const graph = new CodeGraph(parsedData.rootPath);
+
+    // Rebuild the nodes
+    parsedData.nodes.forEach(([key, value]: [string, FileNode]) => {
+      graph.nodes.set(key, value);
+    });
+
+    // Rebuild the edges
+    parsedData.edges.forEach(([key, value]: [string, Set<string>]) => {
+      graph.edges.set(key, new Set(value));
+    });
+
+    return graph;
   }
 }
 

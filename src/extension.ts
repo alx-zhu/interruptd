@@ -13,9 +13,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const rootPath = folders[0].uri.fsPath;
 
-  const graph = new CodeGraph(rootPath);
-  await graph.initialize();
-  graph.displayGraph();
+  let graph: CodeGraph;
+  const savedGraph = context.globalState.get<string>(`${rootPath}.graph`);
+  console.log(`${rootPath}.graph`, savedGraph);
+  if (savedGraph) {
+    graph = CodeGraph.deserialize(savedGraph);
+  } else {
+    graph = new CodeGraph(rootPath);
+    await graph.initialize();
+  }
 
   const doiList = new DoiListProvider(graph, rootPath);
   vscode.window.registerTreeDataProvider("interruptdDoiList", doiList);
@@ -29,46 +35,52 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.window.registerTreeDataProvider("neighborDoiList", neighborList);
 
   const listeners = registerListeners(
+    context,
     graph,
     doiList,
     doiExplorer,
     neighborList
   );
-  const commands = registerCommands(graph, doiList, doiExplorer, neighborList);
+  const commands = registerCommands(
+    context,
+    graph,
+    doiList,
+    doiExplorer,
+    neighborList
+  );
 
   context.subscriptions.push(...commands, ...listeners);
 }
 
 function registerListeners(
+  context: vscode.ExtensionContext,
   graph: CodeGraph,
   doiList: DoiListProvider,
   doiExplorer: DoiExplorerProvider,
   neighborList: DoiNeighborProvider
 ) {
-  // Update the graph when a document is changed
-  const onFileChangeListener = vscode.workspace.onDidChangeTextDocument(
-    (event) => {
+  return [
+    // Update the graph when a document is changed
+    vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.scheme === "file") {
         console.log(`Document changed: ${event.document.uri}`);
         graph.modifyFile(event.document.uri.fsPath);
       }
-    }
-  );
+    }),
 
-  // Update graph when a file is saved
-  const onFileSaveListener = vscode.workspace.onDidSaveTextDocument((event) => {
-    console.log(`Document saved: ${event.uri}`);
-    if (event.uri.scheme === "file") {
-      graph.saveFile(event.uri.fsPath);
-      doiList.refresh();
-      doiExplorer.refresh();
-      neighborList.refresh();
-    }
-  });
+    // Update graph when a file is saved
+    vscode.workspace.onDidSaveTextDocument((event) => {
+      console.log(`Document saved: ${event.uri}`);
+      if (event.uri.scheme === "file") {
+        graph.saveFile(event.uri.fsPath);
+        doiList.refresh();
+        doiExplorer.refresh();
+        neighborList.refresh();
+      }
+    }),
 
-  // Listen for navigating to files
-  const onFileSelectListener = vscode.window.onDidChangeActiveTextEditor(
-    (editor) => {
+    // Listen for navigating to files
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor && editor.document.uri.scheme === "file") {
         console.log(`File selected: ${editor.document.uri.fsPath}`);
         graph.navToFile(editor.document.uri.fsPath);
@@ -76,119 +88,107 @@ function registerListeners(
         doiExplorer.refresh();
         neighborList.setCurrentPath(editor.document.uri.fsPath);
       }
-    }
-  );
+    }),
 
-  // Listen for new file creations
-  const onFileCreateListener = vscode.workspace.onDidCreateFiles((event) => {
-    for (const file of event.files) {
-      if (file.scheme === "file") {
-        console.log(`New file created: ${file.fsPath}`);
-        graph.addFile(file.fsPath);
+    // Listen for new file creations
+    vscode.workspace.onDidCreateFiles((event) => {
+      for (const file of event.files) {
+        if (file.scheme === "file") {
+          console.log(`New file created: ${file.fsPath}`);
+          graph.addFile(file.fsPath);
+        }
       }
-    }
-    doiList.refresh();
-    doiExplorer.refresh();
-    neighborList.refresh();
-  });
+      doiList.refresh();
+      doiExplorer.refresh();
+      neighborList.refresh();
+    }),
 
-  // Listen for file deletion
-  const onFileDeleteListener = vscode.workspace.onDidDeleteFiles((event) => {
-    for (const file of event.files) {
-      if (file.scheme === "file") {
-        console.log(`File deleted: ${file.fsPath}`);
-        graph.removeFile(file.fsPath);
+    // Listen for file deletion
+    vscode.workspace.onDidDeleteFiles((event) => {
+      for (const file of event.files) {
+        if (file.scheme === "file") {
+          console.log(`File deleted: ${file.fsPath}`);
+          graph.removeFile(file.fsPath);
+        }
       }
-    }
-    doiList.refresh();
-    doiExplorer.refresh();
-    neighborList.refresh();
-  });
+      doiList.refresh();
+      doiExplorer.refresh();
+      neighborList.refresh();
+    }),
 
-  // Listen for file renaming
-  const onFileRenameListener = vscode.workspace.onDidRenameFiles((event) => {
-    for (const { oldUri, newUri } of event.files) {
-      if (oldUri.scheme === "file" && newUri.scheme === "file") {
-        console.log(`File renamed from ${oldUri.fsPath} to ${newUri.fsPath}`);
-        graph.renameFile(oldUri.fsPath, newUri.fsPath); // Implement this method in your graph
+    // Listen for file renaming
+    vscode.workspace.onDidRenameFiles((event) => {
+      for (const { oldUri, newUri } of event.files) {
+        if (oldUri.scheme === "file" && newUri.scheme === "file") {
+          console.log(`File renamed from ${oldUri.fsPath} to ${newUri.fsPath}`);
+          graph.renameFile(oldUri.fsPath, newUri.fsPath); // Implement this method in your graph
+        }
       }
-    }
-    doiList.refresh();
-    doiExplorer.refresh();
-    neighborList.refresh();
-  });
-
-  return [
-    onFileChangeListener,
-    onFileSaveListener,
-    onFileSelectListener,
-    onFileCreateListener,
-    onFileDeleteListener,
-    onFileRenameListener,
+      doiList.refresh();
+      doiExplorer.refresh();
+      neighborList.refresh();
+    }),
   ];
 }
 
 function registerCommands(
+  context: vscode.ExtensionContext,
   graph: CodeGraph,
   doiList: DoiListProvider,
   doiExplorer: DoiExplorerProvider,
   neighborList: DoiNeighborProvider
 ) {
-  const generateGraphCommand = vscode.commands.registerCommand(
-    "interruptd.generateGraph",
-    () => {
+  return [
+    vscode.commands.registerCommand("interruptd.resetGraph", () => {
+      graph.resetGraph();
+      doiList.refresh();
+      doiExplorer.refresh();
+      neighborList.refresh();
+    }),
+
+    vscode.commands.registerCommand("interruptd.resetSavedGraph", () => {
+      // should it also reset the current graph?
+      context.globalState.update(`${graph.getRootPath()}.graph`, undefined);
+    }),
+
+    vscode.commands.registerCommand("interruptd.generateGraph", () => {
       vscode.window.showInformationMessage("Generating Graph.");
       graph.initialize();
       doiList.refresh();
       doiExplorer.refresh();
       neighborList.refresh();
-    }
-  );
+    }),
 
-  const refreshCommand = vscode.commands.registerCommand(
-    "interruptd.refresh",
-    () => {
+    vscode.commands.registerCommand("interruptd.saveGraph", () => {
+      console.log(`${graph.getRootPath()}.graph`);
+      context.globalState.update(
+        `${graph.getRootPath()}.graph`,
+        graph.serialize()
+      );
+      vscode.window.showInformationMessage("Graph Saved!");
+    }),
+
+    vscode.commands.registerCommand("interruptd.refresh", () => {
       doiList.refresh();
       doiExplorer.refresh();
       neighborList.refresh();
-    }
-  );
+    }),
 
-  const filterNoneCommand = vscode.commands.registerCommand(
-    "interruptd.filterNone",
-    () => {
+    vscode.commands.registerCommand("interruptd.filterNone", () => {
       doiExplorer.filterNone();
-    }
-  );
+    }),
 
-  const filterHighCommand = vscode.commands.registerCommand(
-    "interruptd.filterHigh",
-    () => {
+    vscode.commands.registerCommand("interruptd.filterHigh", () => {
       doiExplorer.filterHigh();
-    }
-  );
+    }),
 
-  const filterMediumCommand = vscode.commands.registerCommand(
-    "interruptd.filterMedium",
-    () => {
+    vscode.commands.registerCommand("interruptd.filterMedium", () => {
       doiExplorer.filterMedium();
-    }
-  );
+    }),
 
-  const filterLowCommand = vscode.commands.registerCommand(
-    "interruptd.filterLow",
-    () => {
+    vscode.commands.registerCommand("interruptd.filterLow", () => {
       doiExplorer.filterLow();
-    }
-  );
-
-  return [
-    generateGraphCommand,
-    refreshCommand,
-    filterNoneCommand,
-    filterHighCommand,
-    filterMediumCommand,
-    filterLowCommand,
+    }),
   ];
 }
 
